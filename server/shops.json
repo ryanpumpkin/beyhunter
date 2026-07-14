@@ -1,0 +1,223 @@
+{
+  "comment": "香港舖頭註冊表——加新舖＝加一個 entry，唔使寫 code。platform: woocommerce | shopify | toysrus。interval_s: 巡查頻率（秒），唔設就 240；太密會俾舖封 IP，API 類 60 已經好進取",
+  "shops": [
+    {
+      "id": "fooklemodel",
+      "name": "福利模型 Fook Le Model",
+      "platform": "woocommerce",
+      "base_url": "https://fooklemodel.com",
+      "search": "beyblade",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "tclub",
+      "name": "T CLUB",
+      "platform": "shopify",
+      "base_url": "https://www.tclub.com.hk",
+      "collection": "beybladex",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 120,
+      "enabled": true,
+      "comment": "Shopify。收返 120 秒——三間 Shopify 共用 Cloudflare，90 秒推高聚合率累 animes-pro 彈多 503，全部 120 最穩。"
+    },
+    {
+      "id": "toysrus-hk",
+      "name": "玩具反斗城 香港",
+      "platform": "toysrus",
+      "base_url": "https://www.toysrus.com.hk",
+      "region": "hk",
+      "trust": "official",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "buymarkettoy",
+      "name": "BuyMarket Toy",
+      "platform": "shopline",
+      "base_url": "https://www.buymarkettoy.com",
+      "listing_urls": [
+        "https://www.buymarkettoy.com/products?query=beyblade",
+        "https://www.buymarkettoy.com/products?query=陀螺"
+      ],
+      "comment": "用關鍵字搜尋頁（唔用分類頁）——舖主有啲貨(如 UX-00 Nightmail)冇歸類入 Beyblade 分類，搜尋先捉到晒",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "dreamtoys",
+      "name": "Dream Toys",
+      "platform": "shopline",
+      "base_url": "https://www.dreamtoys.com.hk",
+      "listing_urls": [
+        "https://www.dreamtoys.com.hk/products?query=beyblade"
+      ],
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "marktoys",
+      "name": "MarkToys",
+      "platform": "shopline",
+      "base_url": "https://www.marktoys.com.hk",
+      "listing_urls": [
+        "https://www.marktoys.com.hk/products?query=beyblade"
+      ],
+      "comment": "SHOPLINE 玩具零售店。搜尋頁 SSR 有 Beyblade X 貨（CX/BX 現貨＋預訂）。只用 query=beyblade（啲 X 貨標題都有 Beyblade X）——query=陀螺 會撈到 Sanrio 指頭陀螺/舊 Burst 噪音，唔用。若日後見漏中文純標題貨，再加返 query=陀螺。",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "hobbyland",
+      "name": "玩具模型倉 Hobbyland",
+      "platform": "hobbyland",
+      "base_url": "https://www.hobbylandeshop.com",
+      "region": "hk",
+      "trust": "verified_shop",
+      "categories": [
+        [
+          "takaratomy",
+          "beyblade陀螺"
+        ]
+      ],
+      "interval_s": 120,
+      "timeout_ms": 15000,
+      "max_retries": 3,
+      "retry_backoff_ms": 1000,
+      "retry_budget_ms": 25000,
+      "comment": "自家 Quasar SPA；內部 API backend.hobbylandeshop.com/api/products。用 category query(唔用 search——search 會 429/hang，category 係 index lookup 秒回)。categories = 分類頁 URL 路徑段，例 /product-category/takaratomy/beyblade陀螺。溫和 retry 應付偶發 busy 即可，唔使 aggressive punch",
+      "enabled": true
+    },
+    {
+      "id": "hobbydigi",
+      "name": "Toys Zone 玩具專區",
+      "platform": "browser",
+      "base_url": "https://www.hobbydigi.com",
+      "listing_urls": [
+        "https://www.hobbydigi.com/en/toys/brands/takara-tomy/beyblade"
+      ],
+      "region": "hk",
+      "trust": "verified_shop",
+      "currency": "USD",
+      "interval_s": 180,
+      "enabled": true,
+      "comment": "Cloudflare 全站 challenge，用 Playwright headless browser 抓；Magento 2 預設 selectors；英文版標價係美金"
+    },
+    {
+      "id": "yasuee",
+      "name": "Yasuee 香港",
+      "platform": "custom",
+      "base_url": "https://yasuee.com.hk",
+      "region": "hk",
+      "trust": "verified_shop",
+      "enabled": false,
+      "comment": "Cloudflare 403，同上"
+    },
+    {
+      "id": "rcmart",
+      "name": "rcMart",
+      "platform": "custom",
+      "base_url": "https://hk.rcmart.com",
+      "region": "hk",
+      "trust": "verified_shop",
+      "enabled": false,
+      "comment": "Cloudflare 403，同上"
+    },
+    {
+      "id": "hktvmall",
+      "name": "HKTVmall",
+      "platform": "custom",
+      "base_url": "https://www.hktvmall.com",
+      "region": "hk",
+      "trust": "official",
+      "enabled": false,
+      "comment": "JS 動態網站＋內部 API 有簽名，backlog"
+    },
+    {
+      "id": "toysrus-tw",
+      "name": "玩具反斗城 台灣",
+      "platform": "toysrus",
+      "base_url": "https://www.toysrus.com.tw",
+      "listing_urls": [
+        "https://www.toysrus.com.tw/zh-tw/beyblade/?sz=48"
+      ],
+      "region": "tw",
+      "currency": "TWD",
+      "trust": "official",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "moonroad",
+      "name": "Moon Road",
+      "platform": "shopify",
+      "base_url": "https://www.moonroadhk.com",
+      "collection": "戰鬥陀螺x-beyblade-x",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 120,
+      "enabled": true
+    },
+    {
+      "id": "animespro",
+      "name": "Animes Pro 精品",
+      "platform": "shopify",
+      "base_url": "https://animes-pro.com",
+      "collection": "陀螺",
+      "comment": "香港動漫精品店（Shopify）。陀螺喺 product_type=陀螺，Shopify 自動生成 /collections/陀螺（中文 handle，fetch 自動 encode）。註：三間 Shopify 店共用 NAS IP，全部 60 秒會俾 Shopify edge 限流 503，所以 Shopify 類一律 120 秒。",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 120,
+      "enabled": true
+    },
+    {
+      "id": "easybuy711",
+      "name": "7-Eleven Easy Buy",
+      "platform": "woocommerce",
+      "base_url": "https://easybuy.hk",
+      "searches": [
+        "beyblade",
+        "陀螺"
+      ],
+      "comment": "7-11 香港預購網店。而家未有陀螺，一上架就會捉到；舊版 Store API 路徑（冇 v1），adapter 會自動 fallback",
+      "region": "hk",
+      "trust": "official",
+      "interval_s": 60,
+      "enabled": true
+    },
+    {
+      "id": "maytoys",
+      "name": "May Toys 預訂",
+      "platform": "opencart",
+      "base_url": "https://preorder.maytoysonline.com",
+      "listing_urls": [
+        "https://preorder.maytoysonline.com/index.php?route=product/search&search=beyblade&limit=100"
+      ],
+      "comment": "OpenCart 預訂站（另一 subdomain；www 主站冇 Beyblade X）。.product-thumb 卡，標題喺 img[title] 開頭「BeybladeX ...」，截止睇 .outofstock/label-outofstock（截止預訂）。search=beyblade 認到（標題都有 BeybladeX）。",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 120,
+      "enabled": true
+    },
+    {
+      "id": "vymobile",
+      "name": "VY Mobile",
+      "platform": "boutir",
+      "base_url": "https://vymobile852.boutir.com",
+      "region": "hk",
+      "trust": "community",
+      "interval_s": 120,
+      "comment": "掌舖 Boutir 店（手機/生活配件為主，兼賣美版陀螺；IG @ 有預告會上美版）。/apis/storefront/products JSON API 分頁 desc，新貨排 page 1。adapter 按關鍵字（陀螺/美版/BX…）篩，可用 product_filter 覆寫。trust=community 因係水貨/散貨 reseller。",
+      "enabled": true
+    }
+  ]
+}

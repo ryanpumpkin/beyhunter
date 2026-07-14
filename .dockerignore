@@ -1,0 +1,9 @@
+node_modules/
+web/node_modules/
+web/dist/
+server/beyhunter.db*
+server/.wwebjs_auth/
+server/.wwebjs_cache/
+.env
+.git/
+.DS_Store

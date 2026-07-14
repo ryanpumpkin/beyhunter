@@ -1,0 +1,21 @@
+services:
+  beyhunter:
+    build: .
+    image: beyhunter:latest
+    container_name: beyhunter
+    restart: unless-stopped
+    ports:
+      - "8100:3000"   # NAS 已用咗 5000/5001/8080/443，改行 8100；要改就改呢個冒號前面嘅數字
+    env_file:
+      - .env
+    volumes:
+      - beyhunter-data:/app/data   # SQLite DB + WhatsApp 登入 session，唔會因為重起容器而冇咗
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/feed').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  beyhunter-data:

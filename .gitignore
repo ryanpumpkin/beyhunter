@@ -1,0 +1,17 @@
+node_modules/
+web/dist/
+server/beyhunter.db*
+server/.wwebjs_auth/
+server/.wwebjs_cache/
+.env
+.DS_Store
+server/notify-settings.json
+
+# secrets / session state / generated — 唔可以 commit
+*.db
+.wwebjs_cache/
+.wwebjs_auth/
+.claude-flow/
+graphify-out/
+*.log
+.Rhistory

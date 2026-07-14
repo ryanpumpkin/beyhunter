@@ -1,0 +1,4 @@
+{
+  "comment": "社群 feed 訂閱清單。FB/Threads/IG 經 rss.app 或 RSSHub 轉成 RSS/JSON Feed 之後，將條 URL 貼入嚟即接入。trust: official | verified_shop | community",
+  "feeds": []
+}
