@@ -8,7 +8,7 @@
 // 秒回、就算搶爆都抓到。category 參數 = 分類頁 URL 嘅路徑段陣列，例如
 // /product-category/takaratomy/beyblade陀螺 → ["takaratomy","beyblade陀螺"]。
 // 仍保留溫和 retry 應付偶發 busy，但唔再需要 aggressive punch（用啱 endpoint 就冇 429）。
-import { fetchWithUA, ingestItem, markUnavailable } from './util.js';
+import { fetchWithUA, ingestItem, markUnavailable, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const API = 'https://backend.hobbylandeshop.com/api/products';
@@ -104,6 +104,7 @@ export async function runShop(shop) {
   let itemsSeen = 0;
   let apiOk = false;
   let busy = false;
+  let reason = null; // 非 busy 嘅失敗死因（HTTP error / code≠0 / 例外）
   const categories = shop.categories || DEFAULT_CATEGORIES;
   const maxPages = shop.max_pages ?? 5; // 分類貨少（~2 版），封頂防手誤/分類爆量
   // 成個 run 一份時間預算，所有分類/分頁夾住用，保證唔 overrun poll interval
@@ -113,7 +114,7 @@ export async function runShop(shop) {
     for (const category of categories) {
       // 第一頁攞埋 total_pages，再逐頁抓（分類 endpoint 平，抓齊先睇到晒所有現貨）
       const first = await fetchPage(shop, category, 1, deadline);
-      if (!first) continue;
+      if (!first) { reason = 'API 無效回應（HTTP error 或 code≠0）'; continue; }
       if (first.busy) { busy = true; continue; }
       apiOk = true;
       const list1 = Array.isArray(first.data.list) ? first.data.list : [];
@@ -131,10 +132,11 @@ export async function runShop(shop) {
     }
   } catch (err) {
     console.warn(`[hobbyland:${shop.id}] 抓取失敗：`, err.message);
+    reason = errReason(err);
   }
   // busy 唔當來源壞（係佢 server 忙，唔係我哋斷）：有 apiOk 就照常報健康，
   // 純粹全程 busy（apiOk=false, busy=true）就 skip 唔報，唔好誤觸「來源壞咗」警報
   if (apiOk) reportSourceHealth(`hobbyland-${shop.id}`, Math.max(itemsSeen, 1));
-  else if (!busy) reportSourceHealth(`hobbyland-${shop.id}`, 0);
+  else if (!busy) reportSourceHealth(`hobbyland-${shop.id}`, 0, reason);
   return added;
 }

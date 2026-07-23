@@ -14,12 +14,17 @@ export function checkSourceHealth() {
   for (const row of healthRows.all()) {
     if (row.alerted) continue;
     const lastOkAge = row.last_ok ? now - Date.parse(row.last_ok) : Infinity;
+    // 死因：fetch 真係失敗（HTTP error / timeout / DNS）先有 last_error；
+    // 「站正常但抓到 0 件」last_error 會係 null，照舊當「改版/被封」講。
+    const cause = row.last_error ? `\n死因：${row.last_error}` : '';
     let msg = null;
     if (row.zero_streak >= ZERO_STREAK_THRESHOLD) {
-      msg = `來源「${row.adapter}」連續 ${row.zero_streak} 次抓到 0 件——可能改咗版或者被封，去 check 下。`;
+      msg = row.last_error
+        ? `來源「${row.adapter}」連續 ${row.zero_streak} 次死 server／抓唔到，去 check 下。${cause}`
+        : `來源「${row.adapter}」連續 ${row.zero_streak} 次抓到 0 件——可能改咗版或者被封，去 check 下。`;
     } else if (row.last_run && lastOkAge > STALE_MS) {
       const hrs = Math.round(lastOkAge / 3600000);
-      msg = `來源「${row.adapter}」已經 ${hrs} 小時冇成功抓到嘢（最後成功：${row.last_ok || '從未'}）。`;
+      msg = `來源「${row.adapter}」已經 ${hrs} 小時冇成功抓到嘢（最後成功：${row.last_ok || '從未'}）。${cause}`;
     }
     if (msg) {
       console.warn('[health]', msg);

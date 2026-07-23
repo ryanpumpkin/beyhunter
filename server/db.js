@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS source_health (
 // migration：舊 DB 加欄位（已存在會 throw，照吞）
 try { db.exec(`ALTER TABLE events ADD COLUMN sold_out INTEGER NOT NULL DEFAULT 0`); } catch { /* already exists */ }
 try { db.exec(`ALTER TABLE skus ADD COLUMN category TEXT DEFAULT 'bey'`); } catch { /* already exists */ }
+try { db.exec(`ALTER TABLE source_health ADD COLUMN last_error TEXT`); } catch { /* already exists */ }
 
 export const insertEvent = db.prepare(`
   INSERT INTO events (dedupe_key, region, kind, source, title, summary, original, url,
@@ -191,17 +192,21 @@ export function confirmVerdict(adapter, itemKey, verdict, needed = 2) {
 
 // 來源健康：每次 fetch 完記低抓到幾多件（0 = 可疑，可能改版/被封）。
 // itemsSeen 係「頁面抓到幾多件」，唔係「幾多件新」——dedupe 後 0 新係正常。
+// reason：失敗時嘅死因（如 'HTTP 521'、'timeout'、'ECONNREFUSED'）——成功會清返 null。
+// 只喺 adapter 確實 fetch 失敗時傳；「站正常但抓到 0 件」唔應傳 reason（唔係死機）。
 const upsertHealth = db.prepare(`
-  INSERT INTO source_health (adapter, last_run, last_ok, zero_streak, alerted)
-  VALUES (@adapter, @now, CASE WHEN @ok THEN @now ELSE NULL END, CASE WHEN @ok THEN 0 ELSE 1 END, 0)
+  INSERT INTO source_health (adapter, last_run, last_ok, zero_streak, alerted, last_error)
+  VALUES (@adapter, @now, CASE WHEN @ok THEN @now ELSE NULL END, CASE WHEN @ok THEN 0 ELSE 1 END, 0,
+          CASE WHEN @ok THEN NULL ELSE @reason END)
   ON CONFLICT(adapter) DO UPDATE SET
     last_run = @now,
     last_ok = CASE WHEN @ok THEN @now ELSE last_ok END,
     zero_streak = CASE WHEN @ok THEN 0 ELSE zero_streak + 1 END,
-    alerted = CASE WHEN @ok THEN 0 ELSE alerted END
+    alerted = CASE WHEN @ok THEN 0 ELSE alerted END,
+    last_error = CASE WHEN @ok THEN NULL ELSE @reason END
 `);
-export function reportSourceHealth(adapter, itemsSeen) {
-  upsertHealth.run({ adapter, now: new Date().toISOString(), ok: itemsSeen > 0 ? 1 : 0 });
+export function reportSourceHealth(adapter, itemsSeen, reason = null) {
+  upsertHealth.run({ adapter, now: new Date().toISOString(), ok: itemsSeen > 0 ? 1 : 0, reason });
 }
 export const healthRows = db.prepare(`SELECT * FROM source_health ORDER BY adapter`);
 

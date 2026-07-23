@@ -5,7 +5,7 @@
 //
 // 呢類店多數 99% 唔關陀螺事（手機/生活配件），所以按關鍵字篩出目標貨——
 // shop.product_filter 可覆寫（regex string），唔設就用預設陀螺關鍵字。
-import { fetchWithUA, ingestItem, markUnavailable } from './util.js';
+import { fetchWithUA, ingestItem, markUnavailable, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const DEFAULT_FILTER = /陀螺|beyblade|爆旋|美版|BX-?\d{1,3}|UX-?\d{1,3}|CX-?\d{1,3}|發射器|手柄/i;
@@ -27,7 +27,7 @@ export async function runShop(shop) {
     for (let page = 1; page <= MAX_PAGES; page++) {
       const url = `${shop.base_url}/apis/storefront/products?limit=${PAGE_LIMIT}&page=${page}&sort_by=default&sort_order=desc&lang=zh-Hant`;
       const res = await fetchWithUA(url);
-      if (!res.ok) { console.warn(`[boutir:${shop.id}]`, res.status); reportSourceHealth(adapterId, seen); return added; }
+      if (!res.ok) { console.warn(`[boutir:${shop.id}]`, res.status); reportSourceHealth(adapterId, seen, httpReason(res)); return added; }
       const { products = [], has_more } = await res.json();
       seen += products.length;
 
@@ -56,7 +56,7 @@ export async function runShop(shop) {
     reportSourceHealth(adapterId, seen);
   } catch (err) {
     console.warn(`[boutir:${shop.id}] 抓取失敗：`, err.message);
-    reportSourceHealth(adapterId, seen);
+    reportSourceHealth(adapterId, seen, errReason(err));
   }
   return added;
 }

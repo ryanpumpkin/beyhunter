@@ -1,5 +1,5 @@
 // 台灣 PChome：公開 JSON 搜尋 API（已實測，唔使 key）
-import { fetchWithUA, ingestItem } from './util.js';
+import { fetchWithUA, ingestItem, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const QUERIES = ['戰鬥陀螺 BX', '戰鬥陀螺 UX'];
@@ -7,11 +7,12 @@ const QUERIES = ['戰鬥陀螺 BX', '戰鬥陀螺 UX'];
 export async function run() {
   let added = 0;
   let itemsSeen = 0;
+  let reason = null;
   for (const q of QUERIES) {
     try {
       const url = `https://ecshweb.pchome.com.tw/search/v4.3/all/results?q=${encodeURIComponent(q)}&page=1&sort=new/dc`;
       const res = await fetchWithUA(url);
-      if (!res.ok) { console.warn('[pchome]', res.status); continue; }
+      if (!res.ok) { console.warn('[pchome]', res.status); reason = httpReason(res); continue; }
       const data = await res.json();
       itemsSeen += (data.Prods || []).length;
       for (const p of data.Prods || []) {
@@ -31,8 +32,9 @@ export async function run() {
       }
     } catch (err) {
       console.warn('[pchome] 抓取失敗：', err.message);
+      reason = errReason(err);
     }
   }
-  reportSourceHealth('tw-pchome', itemsSeen);
+  reportSourceHealth('tw-pchome', itemsSeen, reason);
   return added;
 }

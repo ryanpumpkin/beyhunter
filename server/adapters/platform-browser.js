@@ -4,7 +4,7 @@
 // 重要：Toys Zone 個列表頁有 server-side cache，庫存標記會滯後（試過話有貨
 // 但詳情頁已經 OUT OF STOCK）。所以列表頁只用嚟「發現」商品；
 // 每件疑似有貨嘅，都去詳情頁核實真庫存＋攞準確價錢。
-import { ingestItem, markUnavailable, normalizeKey, UA } from './util.js';
+import { ingestItem, markUnavailable, normalizeKey, UA, errReason } from './util.js';
 import { confirmVerdict, reportSourceHealth, markAlerted, findByDedupe, updateEventKind, logWaitingRoom } from '../db.js';
 import { alertSystem, notifyNewEvent } from '../notify.js';
 import { toHKD } from '../fx.js';
@@ -111,6 +111,7 @@ export async function runShop(shop) {
   if (!b) return 0;
   let added = 0;
   let itemsSeen = 0;
+  let reason = null; // 開頁/導航失敗死因（timeout / 連唔上）
   const sel = { ...DEFAULT_SELECTORS, ...(shop.selectors || {}) };
 
   let ctx;
@@ -256,11 +257,12 @@ export async function runShop(shop) {
     }
   } catch (err) {
     console.warn(`[browser:${shop.id}] ${err.message}`);
+    reason = errReason(err);
   } finally {
     await ctx?.close().catch(() => {});
   }
   // 等候室新一潮嘅去重而家喺 DB（logWaitingRoom 30min gap），唔使 in-memory flag。
   // reportSourceHealth 見 itemsSeen>0 會自動 reset zero_streak + alerted（復原）。
-  reportSourceHealth(`browser-${shop.id}`, itemsSeen);
+  reportSourceHealth(`browser-${shop.id}`, itemsSeen, reason);
   return added;
 }

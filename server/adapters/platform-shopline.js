@@ -1,7 +1,7 @@
 // 通用 Shopline adapter（SSR HTML scrape）——BuyMarket、DreamToys 等
 // shops.json 設 listing_urls: [分類頁/搜尋頁 URL...]
 import * as cheerio from 'cheerio';
-import { fetchWithUA, ingestItem, markUnavailable } from './util.js';
+import { fetchWithUA, ingestItem, markUnavailable, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const BEY_RE = /beyblade|爆旋|戰鬥陀螺|陀螺|\b(BX|UX|CX)G?-?\d/i;
@@ -10,10 +10,11 @@ const SOLDOUT_RE = /售完|售罄|Sold\s*Out|已售完/i;
 export async function runShop(shop) {
   let added = 0;
   let itemsSeen = 0;
+  let reason = null; // fetch 失敗死因（每條 listing_url 失敗都覆寫；有成功抓到 itemsSeen>0 就唔理）
   for (const url of shop.listing_urls || []) {
     try {
       const res = await fetchWithUA(url);
-      if (!res.ok) { console.warn(`[shopline:${shop.id}]`, res.status, url); continue; }
+      if (!res.ok) { console.warn(`[shopline:${shop.id}]`, res.status, url); reason = httpReason(res); continue; }
       const $ = cheerio.load(await res.text());
 
       const seen = new Set();
@@ -57,8 +58,11 @@ export async function runShop(shop) {
       }
     } catch (err) {
       console.warn(`[shopline:${shop.id}] 抓取失敗：`, err.message);
+      reason = errReason(err);
     }
   }
-  reportSourceHealth(`shopline-${shop.id}`, itemsSeen);
+  // itemsSeen>0 = 至少一條 URL 通 → reason 唔重要（reportSourceHealth 見 ok 會清）；
+  // itemsSeen==0 而 reason 有值 = 真係 fetch 失敗（死 server／被封），帶死因。
+  reportSourceHealth(`shopline-${shop.id}`, itemsSeen, reason);
   return added;
 }

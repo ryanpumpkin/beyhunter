@@ -1,6 +1,6 @@
 // HardOff netmall（日本二手連鎖）：SSR HTML，普通 fetch＋cheerio 就得。
 import * as cheerio from 'cheerio';
-import { fetchWithUA, ingestItem } from './util.js';
+import { fetchWithUA, ingestItem, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const SEARCH_URL = 'https://netmall.hardoff.co.jp/search/?q=' + encodeURIComponent('ベイブレードX');
@@ -8,9 +8,10 @@ const SEARCH_URL = 'https://netmall.hardoff.co.jp/search/?q=' + encodeURICompone
 export async function run() {
   let added = 0;
   let itemsSeen = 0;
+  let reason = null;
   try {
     const res = await fetchWithUA(SEARCH_URL);
-    if (!res.ok) { console.warn('[hardoff]', res.status); reportSourceHealth('jp-hardoff', 0); return 0; }
+    if (!res.ok) { console.warn('[hardoff]', res.status); reportSourceHealth('jp-hardoff', 0, httpReason(res)); return 0; }
     const $ = cheerio.load(await res.text());
 
     const items = [];
@@ -44,7 +45,8 @@ export async function run() {
     if (itemsSeen === 0) console.warn('[hardoff] 抓到 0 件，可能改咗版');
   } catch (err) {
     console.warn('[hardoff] 抓取失敗：', err.message);
+    reason = errReason(err);
   }
-  reportSourceHealth('jp-hardoff', itemsSeen);
+  reportSourceHealth('jp-hardoff', itemsSeen, reason);
   return added;
 }

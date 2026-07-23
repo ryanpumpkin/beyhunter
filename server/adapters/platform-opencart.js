@@ -2,7 +2,7 @@
 // shops.json 設 listing_urls: [搜尋/分類頁 URL...]（OpenCart route=product/search 或 category）。
 // 標準 .product-thumb 卡；標題喺 img[title]，價喺 .price，截止/售罄睇 .outofstock/.label-outofstock。
 import * as cheerio from 'cheerio';
-import { fetchWithUA, ingestItem, markUnavailable } from './util.js';
+import { fetchWithUA, ingestItem, markUnavailable, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const BEY_RE = /beyblade|爆旋|戰鬥陀螺|陀螺|\b(BX|UX|CX)G?-?\d/i;
@@ -11,11 +11,12 @@ const OOS_RE = /截止預訂|停止預訂|售罄|售完|缺貨|已滿|sold\s*out
 export async function runShop(shop) {
   let added = 0;
   let itemsSeen = 0;
+  let reason = null;
   const adapterId = `opencart-${shop.id}`;
   for (const url of shop.listing_urls || []) {
     try {
       const res = await fetchWithUA(url);
-      if (!res.ok) { console.warn(`[opencart:${shop.id}]`, res.status, url); continue; }
+      if (!res.ok) { console.warn(`[opencart:${shop.id}]`, res.status, url); reason = httpReason(res); continue; }
       const $ = cheerio.load(await res.text());
 
       const seen = new Set();
@@ -53,8 +54,9 @@ export async function runShop(shop) {
       }
     } catch (err) {
       console.warn(`[opencart:${shop.id}] 抓取失敗：`, err.message);
+      reason = errReason(err);
     }
   }
-  reportSourceHealth(adapterId, itemsSeen);
+  reportSourceHealth(adapterId, itemsSeen, reason);
   return added;
 }

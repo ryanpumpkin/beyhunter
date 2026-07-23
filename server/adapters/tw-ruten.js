@@ -1,6 +1,6 @@
 // 露天拍賣（台灣二手/個人賣家）：公開 JSON API，普通 fetch。
 // 搜尋 API 回 id list，再用 prod API 攞名/價。
-import { fetchWithUA, ingestItem } from './util.js';
+import { fetchWithUA, ingestItem, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 import { counterfeitVerdict } from '../trust.js';
 
@@ -14,9 +14,10 @@ const RELEVANT_RE = /\b(BX|UX|CX)G?[-‐－]?\d{1,3}\b|戰鬥陀螺X|爆旋陀�
 export async function run() {
   let added = 0;
   let itemsSeen = 0;
+  let reason = null;
   try {
     const res = await fetchWithUA(SEARCH_URL);
-    if (!res.ok) { console.warn('[ruten]', res.status); reportSourceHealth('tw-ruten', 0); return 0; }
+    if (!res.ok) { console.warn('[ruten]', res.status); reportSourceHealth('tw-ruten', 0, httpReason(res)); return 0; }
     const { Rows = [] } = await res.json();
     itemsSeen = Rows.length;
     if (Rows.length) {
@@ -44,7 +45,8 @@ export async function run() {
     if (itemsSeen === 0) console.warn('[ruten] 抓到 0 件，可能 API 改咗');
   } catch (err) {
     console.warn('[ruten] 抓取失敗：', err.message);
+    reason = errReason(err);
   }
-  reportSourceHealth('tw-ruten', itemsSeen);
+  reportSourceHealth('tw-ruten', itemsSeen, reason);
   return added;
 }

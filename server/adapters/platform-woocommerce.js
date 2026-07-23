@@ -1,21 +1,22 @@
 // 通用 WooCommerce Store API adapter——福利模型＋所有 Woo 舖（shops.json 驅動）
-import { fetchWithUA, ingestItem, markUnavailable } from './util.js';
+import { fetchWithUA, ingestItem, markUnavailable, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 // 舊版 WooCommerce 嘅 Store API 路徑冇 /v1/（easybuy.hk 就係）——
 // 首次成功嘅路徑記低，之後唔使次次試兩個
 const apiPathCache = new Map(); // shop.id -> 'v1' | 'legacy'
 
-async function fetchProducts(shop, search) {
+async function fetchProducts(shop, search, fail) {
   const paths = { v1: '/wp-json/wc/store/v1/products', legacy: '/wp-json/wc/store/products' };
   const order = apiPathCache.get(shop.id) === 'legacy' ? ['legacy', 'v1'] : ['v1', 'legacy'];
   for (const key of order) {
     const url = `${shop.base_url}${paths[key]}?search=${encodeURIComponent(search)}&per_page=30&orderby=date`;
     const res = await fetchWithUA(url);
     if (res.ok) { apiPathCache.set(shop.id, key); return res.json(); }
-    if (res.status !== 404) { console.warn(`[woo:${shop.id}]`, res.status); return null; }
+    if (res.status !== 404) { console.warn(`[woo:${shop.id}]`, res.status); fail(httpReason(res)); return null; }
   }
   console.warn(`[woo:${shop.id}] Store API 兩個路徑都 404`);
+  fail('HTTP 404 (Store API 路徑唔啱)');
   return null;
 }
 
@@ -23,12 +24,14 @@ export async function runShop(shop) {
   let added = 0;
   let itemsSeen = 0;
   let apiOk = false; // API 有 200 回應（就算空 array）——JSON API 空結果係可信嘅「冇貨」，唔係壞
+  let reason = null; // fetch 失敗死因（HTTP error / DNS / timeout）——健康警報會帶埋
+  const fail = (r) => { reason = r; };
   // searches: 多組關鍵字（中英文名可能唔同）；冇設就用 search / 'beyblade'
   const searches = shop.searches || [shop.search || 'beyblade'];
   try {
     const seen = new Set();
     for (const q of searches) {
-      const products = await fetchProducts(shop, q);
+      const products = await fetchProducts(shop, q, fail);
       if (!products) continue;
       apiOk = true;
       itemsSeen += products.length;
@@ -56,8 +59,9 @@ export async function runShop(shop) {
     }
   } catch (err) {
     console.warn(`[woo:${shop.id}] 抓取失敗：`, err.message);
+    reason = errReason(err); // 真‧死 server：DNS/連線拒絕/timeout
   }
   // API 通就算健康（搜尋 0 件可以係真冇貨，例如 easybuy 未上架陀螺）
-  reportSourceHealth(`woo-${shop.id}`, apiOk ? Math.max(itemsSeen, 1) : 0);
+  reportSourceHealth(`woo-${shop.id}`, apiOk ? Math.max(itemsSeen, 1) : 0, reason);
   return added;
 }

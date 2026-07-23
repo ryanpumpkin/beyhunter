@@ -218,6 +218,18 @@
       "interval_s": 120,
       "comment": "掌舖 Boutir 店（手機/生活配件為主，兼賣美版陀螺；IG @ 有預告會上美版）。/apis/storefront/products JSON API 分頁 desc，新貨排 page 1。adapter 按關鍵字（陀螺/美版/BX…）篩，可用 product_filter 覆寫。trust=community 因係水貨/散貨 reseller。",
       "enabled": true
+    },
+    {
+      "id": "lastchancetoy",
+      "name": "孤注一扭網店 Last Chance Toy",
+      "platform": "shopify",
+      "base_url": "https://lastchancetoy.com",
+      "collection": "beybladex",
+      "comment": "Shopify（Cloudflare 前置，curl 會俾 429，adapter 用瀏覽器 UA fetch products.json 冇問題）。collection handle=beybladex（beyblade/beyblade-x 係空 collection，唔用）。以日版預訂為主，標題「訂貨碼:xxxxx <訂價$xxx> ... =BeybladeX 陀螺」。interval 120 同 tclub/animes-pro 一樣避 Cloudflare。",
+      "region": "hk",
+      "trust": "verified_shop",
+      "interval_s": 120,
+      "enabled": true
     }
   ]
 }

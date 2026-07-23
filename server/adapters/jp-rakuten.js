@@ -1,7 +1,7 @@
 // 日本 樂天：搜尋結果頁 scrape。樂天有官方 API 但要 app ID。
 // 2026-07 起樂天用 Akamai 擋直接 fetch（無論咩 UA 都淨回 41 byte reference 頁），
 // 改用 Playwright 真 browser 載頁；DOM 結構不變（.searchresultitem 照用）。
-import { ingestItem, UA } from './util.js';
+import { ingestItem, UA, errReason } from './util.js';
 import { getBrowser } from './platform-browser.js';
 import { reportSourceHealth } from '../db.js';
 
@@ -26,20 +26,22 @@ export async function run() {
   if (!b) return 0;
   let added = 0;
   let ctx;
+  let totalSeen = 0;
+  let reason = null;
   try {
     ctx = await b.newContext({ userAgent: UA, locale: 'ja-JP', viewport: { width: 1440, height: 900 } });
-    let totalSeen = 0;
     for (const url of SEARCH_URLS) {
       const { added: a, seen } = await runOne(ctx, url);
       added += a;
       totalSeen += seen;
     }
-    reportSourceHealth('jp-rakuten', totalSeen);
   } catch (err) {
     console.warn('[rakuten]', err.message);
+    reason = errReason(err);
   } finally {
     await ctx?.close().catch(() => {});
   }
+  reportSourceHealth('jp-rakuten', totalSeen, reason);
   return added;
 }
 

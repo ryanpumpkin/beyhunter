@@ -14,6 +14,17 @@ export async function fetchWithUA(url, opts = {}) {
   });
 }
 
+// 死因格式化：畀 adapter 失敗分支傳去 reportSourceHealth(id, 0, reason)。
+// HTTP 掛（站有回應但非 2xx，如 Cloudflare 521/503）：
+export function httpReason(res) {
+  return `HTTP ${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
+}
+// fetch 例外掛（真‧死 server：DNS/連線拒絕/timeout，fetchWithUA 會 throw）：
+export function errReason(err) {
+  if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return 'timeout (20s 冇回應)';
+  return err?.cause?.code || err?.code || err?.message || String(err);
+}
+
 const PREORDER_RE = /預訂|預購|預售|截訂|網店預購|預約|訂金|落訂|\bPSL\b|\d{1,2}月(到貨|發貨|出貨)/i;
 
 // 分類優先次序：標題有預售字眼 > 標題明寫現貨 > 說明有預售字眼 > 當現貨

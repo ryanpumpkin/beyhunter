@@ -2,7 +2,7 @@
 // 注意：carousell.tw 對 headless browser 出「推薦 feed」唔出搜尋結果（soft-block），
 // 所以台灣二手改用露天拍賣（tw-ruten.js），呢度淨做 HK。
 // 二手 listing 只入 feed/價格 chart，唔推通知（ingestItem 只通知 preorder|stock）。
-import { ingestItem, UA } from './util.js';
+import { ingestItem, UA, errReason } from './util.js';
 import { getBrowser } from './platform-browser.js';
 import { reportSourceHealth } from '../db.js';
 import { counterfeitVerdict } from '../trust.js';
@@ -29,6 +29,7 @@ export async function run() {
   for (const site of SITES) {
     let ctx;
     let itemsSeen = 0;
+    let reason = null;
     try {
       ctx = await b.newContext({ userAgent: UA, locale: site.region === 'tw' ? 'zh-TW' : 'zh-HK', viewport: { width: 1440, height: 900 } });
       const page = await ctx.newPage();
@@ -79,9 +80,10 @@ export async function run() {
       if (itemsSeen === 0) console.warn(`[${site.adapterId}] 抓到 0 件，可能改咗版`);
     } catch (err) {
       console.warn(`[${site.adapterId}] 抓取失敗：`, err.message);
+      reason = errReason(err);
     } finally {
       await ctx?.close().catch(() => {});
-      reportSourceHealth(site.adapterId, itemsSeen);
+      reportSourceHealth(site.adapterId, itemsSeen, reason);
     }
   }
   return added;

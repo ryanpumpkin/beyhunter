@@ -1,6 +1,6 @@
 // Mercari 煤爐（日本最大二手平台）：SPA＋反爬蟲勁，用 Playwright。
 // 呢個來源最易斷——壞咗由 health monitor 警報，唔影響其他 adapter。
-import { ingestItem, UA } from './util.js';
+import { ingestItem, UA, errReason } from './util.js';
 import { getBrowser } from './platform-browser.js';
 import { reportSourceHealth } from '../db.js';
 
@@ -11,6 +11,7 @@ export async function run() {
   if (!b) return 0;
   let added = 0;
   let itemsSeen = 0;
+  let reason = null;
   let ctx;
   try {
     ctx = await b.newContext({ userAgent: UA, locale: 'ja-JP', viewport: { width: 1440, height: 900 } });
@@ -53,9 +54,10 @@ export async function run() {
     if (itemsSeen === 0) console.warn('[mercari] 抓到 0 件——可能俾反爬蟲擋咗或者改版');
   } catch (err) {
     console.warn('[mercari] 抓取失敗：', err.message);
+    reason = errReason(err);
   } finally {
     await ctx?.close().catch(() => {});
   }
-  reportSourceHealth('jp-mercari', itemsSeen);
+  reportSourceHealth('jp-mercari', itemsSeen, reason);
   return added;
 }

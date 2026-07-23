@@ -2,7 +2,7 @@
 // HK 預設監住預購頁（a[title] SSR 版面）；TW 用分類/搜尋頁（.product 卡，
 // 標題喺 img[title]，價錢喺 .price .value[content]）。兩種版面都試。
 import * as cheerio from 'cheerio';
-import { fetchWithUA, ingestItem } from './util.js';
+import { fetchWithUA, ingestItem, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const HK_PREORDER_URL = 'https://www.toysrus.com.hk/zh-hk/pre-order/';
@@ -43,13 +43,14 @@ function parsePage($, baseUrl) {
 export async function runShop(shop) {
   let added = 0;
   let itemsSeen = 0;
+  let reason = null;
   const adapterId = shop?.id ? `toysrus-${shop.id.replace(/^toysrus-?/, '') || 'hk'}` : 'hk-toysrus';
   const urls = shop?.listing_urls?.length ? shop.listing_urls : [HK_PREORDER_URL];
 
   for (const listUrl of urls) {
     try {
       const res = await fetchWithUA(listUrl);
-      if (!res.ok) { console.warn(`[toysrus:${shop?.id || 'hk'}]`, res.status); continue; }
+      if (!res.ok) { console.warn(`[toysrus:${shop?.id || 'hk'}]`, res.status); reason = httpReason(res); continue; }
       const $ = cheerio.load(await res.text());
       const { found, candidates } = parsePage($, listUrl);
       itemsSeen += candidates;
@@ -71,8 +72,9 @@ export async function runShop(shop) {
       }
     } catch (err) {
       console.warn(`[toysrus:${shop?.id || 'hk'}] 抓取失敗：`, err.message);
+      reason = errReason(err);
     }
   }
-  reportSourceHealth(shop?.id === 'toysrus-hk' || !shop?.id ? 'hk-toysrus' : adapterId, itemsSeen);
+  reportSourceHealth(shop?.id === 'toysrus-hk' || !shop?.id ? 'hk-toysrus' : adapterId, itemsSeen, reason);
   return added;
 }
