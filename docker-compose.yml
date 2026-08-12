@@ -8,6 +8,16 @@ services:
       - "8100:3000"   # NAS 已用咗 5000/5001/8080/443，改行 8100；要改就改呢個冒號前面嘅數字
     env_file:
       - .env
+    environment:
+      # 冇呢個，V8 會用成部 NAS 嘅 RAM 嚟定 heap 上限，好耐先做一次 major GC，
+      # RSS 淨係升唔跌（見過起咗成日爬到 3.4GB）。夾實個 heap，佢會勤啲 GC，
+      # RSS 先企得喺合理水平——呢個先係真正止血嘅設定，下面 mem_limit 淨係安全網。
+      NODE_OPTIONS: "--max-old-space-size=768"
+    # 安全網：就算真係有 leak 都唔會食晒成部 NAS 嘅 RAM。3g 留咗好多 buffer
+    # 俾兩個常駐 Chromium（WhatsApp + Playwright，一齊都係 ~0.9GB）＋ Node heap
+    # 一齊起跳嗰陣唔會誤 OOM——夾太緊會不斷 crash-loop，好過原本冇上限。
+    mem_limit: 3g
+    memswap_limit: 3g   # 同 mem_limit 一樣＝唔俾用 swap，爆咗即刻 OOM-kill+restart，好過拖到成部 NAS 一齊 swap thrashing
     volumes:
       - beyhunter-data:/app/data   # SQLite DB + WhatsApp 登入 session，唔會因為重起容器而冇咗
     healthcheck:
