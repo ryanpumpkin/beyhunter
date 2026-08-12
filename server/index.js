@@ -8,7 +8,7 @@ import { getRates } from './fx.js';
 import { startScheduler } from './fetcher.js';
 import { initChannels, whatsapp, notifyNewEvent } from './notify.js';
 import { getWhatsappTargets, setWhatsappTargets } from './settings.js';
-import { healthRows } from './db.js';
+import { healthRows, notifyFailures, notifyStats } from './db.js';
 import { startHealthMonitor } from './health.js';
 import QRCode from 'qrcode';
 
@@ -138,6 +138,13 @@ app.get('/api/whatsapp/groups', requireAdmin, async (_req, res) => {
 
 // 各來源健康狀態（設定 GUI 顯示）
 app.get('/api/sources/health', requireAdmin, (_req, res) => res.json({ sources: healthRows.all() }));
+
+// 通知送遞狀況：近 24 小時成功/失敗統計 ＋ 最近送唔出嗰啲。
+// 之前通知失敗淨係 console.warn，重啟就冇晒，出過事都唔知——而家查得返。
+app.get('/api/notify/failures', requireAdmin, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+  res.json({ stats: notifyStats.all(), failures: notifyFailures.all({ limit }) });
+});
 
 // Pairing code 登入（免掃 QR）：GET /api/whatsapp/pair?phone=85298765432&token=...
 // 回傳 8 位 code，手機 WhatsApp「已連結的裝置 → 改用電話號碼連結」入

@@ -82,6 +82,21 @@ CREATE TABLE IF NOT EXISTS source_health (
   zero_streak INTEGER NOT NULL DEFAULT 0,  -- 連續抓到 0 件次數
   alerted     INTEGER NOT NULL DEFAULT 0   -- 出咗警報未（復原後 reset）
 );
+-- 通知送遞留底。之前通知送失敗淨係 console.warn 一句就算，container 一重啟
+-- 就查無可查（試過補貨通知靜靜雞冇咗，事後完全唔知發生過咩事）。而家每次
+-- 派送（成功定失敗）都寫一行，設定頁 /api/notify/failures 睇得返。
+CREATE TABLE IF NOT EXISTS notify_log (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel    TEXT NOT NULL,                -- whatsapp | telegram
+  status     TEXT NOT NULL,                -- ok | failed
+  attempts   INTEGER NOT NULL DEFAULT 1,   -- 試咗幾多次先有呢個結果
+  kind       TEXT,                         -- event kind，system = 系統警報
+  title      TEXT,                         -- 訊息頭一行，方便認返係邊條
+  url        TEXT,                         -- 原文連結（有嘅話），方便手動補跟
+  error      TEXT,                         -- 失敗死因
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_notify_log ON notify_log (created_at DESC);
 `);
 
 // migration：舊 DB 加欄位（已存在會 throw，照吞）
@@ -226,6 +241,23 @@ export const waitingRoomHistory = db.prepare(`
   WHERE seen_at > datetime('now', @since) ORDER BY seen_at DESC
 `);
 export const markAlerted = db.prepare(`UPDATE source_health SET alerted = 1 WHERE adapter = ?`);
+
+// 通知送遞留底（見上面 notify_log 建表註解）
+export const insertNotifyLog = db.prepare(`
+  INSERT INTO notify_log (channel, status, attempts, kind, title, url, error)
+  VALUES (@channel, @status, @attempts, @kind, @title, @url, @error)
+`);
+// 最近嘅失敗記錄（設定頁用）。冇失敗＝空 array，即係一切正常。
+export const notifyFailures = db.prepare(`
+  SELECT * FROM notify_log WHERE status = 'failed'
+  ORDER BY created_at DESC LIMIT @limit
+`);
+// 送遞概況：近 24 小時每個 channel 成功/失敗數，一眼睇到係咪成條隊死咗
+export const notifyStats = db.prepare(`
+  SELECT channel, status, COUNT(*) AS n, MAX(created_at) AS last_at
+  FROM notify_log WHERE created_at > datetime('now', '-24 hours')
+  GROUP BY channel, status
+`);
 
 // snapshot diff：回傳 true = 新見到嘅 item（用嚟觸發通知）
 const snapshotHas = db.prepare(`SELECT 1 FROM snapshots WHERE adapter=? AND item_key=?`);
