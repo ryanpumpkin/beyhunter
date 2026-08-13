@@ -6,7 +6,10 @@
 //   "me" ＝ 登入嗰個號碼自己（「傳訊息給自己」）。
 //   每個收件人可設 regions（['hk'] 等）＝只收嗰啲地區；null ＝ 全收。
 // 首次啟動要登入一次：掃 QR（/api/whatsapp/qr）或 pairing code
-//（/api/whatsapp/pair?phone=...）。session 存喺 server/.wwebjs_auth/。
+//（/api/whatsapp/pair?phone=...）。session 位置睇 WWEBJS_AUTH_PATH：
+//   Docker（Dockerfile 設咗）= /app/data/wwebjs_auth，掛喺 beyhunter-data volume；
+//   本地開發冇設環境變數先 fallback 去 server/.wwebjs_auth/。
+//   （debug session 問題搵錯路徑會查極都冇嘢，記住睇環境變數為準。）
 //
 // 注意：呢個係非官方方案，等於掛住個 WhatsApp Web，個人用途 OK，
 // 唔好攞去大規模商用（可能封號）。用 Playwright 已裝好嘅 Chromium，慳返一個下載。
@@ -84,10 +87,23 @@ async function chromiumPath() {
 }
 
 const RECONNECT_BASE_MS = 10_000;
+// initialize() 唔止開 browser，仲要載埋 WhatsApp Web 個頁同等驗證。
+// puppeteer.timeout 只管到 browser launch，之後嗰段吊咗就冇人理——所以要自己封頂。
+const INIT_TIMEOUT_MS = 180_000;
 let reconnectAttempt = 0;
+// 開緊嗰次嘅 promise。守門（if client）同 `client = new Client()` 之間隔住 await，
+// 兩個 caller（init()／send()／重連 timer）同時入嚟就會各開一隻 Chromium 搶同一個
+// profile，直接撞返 SingletonLock。後來者等埋同一次初始化就唔會撞。
+let initInFlight = null;
 
 async function ensureClient() {
   if (client || initErr) return;
+  if (initInFlight) return initInFlight;
+  initInFlight = startClient().finally(() => { initInFlight = null; });
+  return initInFlight;
+}
+
+async function startClient() {
   try {
     const [{ default: pkg }, { default: qrcode }] = await Promise.all([
       import('whatsapp-web.js'),
@@ -106,23 +122,30 @@ async function ensureClient() {
         args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
       },
     });
+    // 捉實今次開嘅係邊隻。下面啲 handler 全部要認住 me——唔可以直接用
+    // module-level 個 client，因為隻舊嘅 handler 可能喺我哋換咗新 client 之後
+    // 先延遲觸發，跟住就會拆錯人（destroy 咗隻正常運作緊嘅新 client）。
+    const me = client;
     client.on('qr', qr => {
+      if (client !== me) return;
       lastQr = qr;
       qrVersion++;
       console.log('\n[whatsapp] 掃 QR 登入：終端機睇下面，或開 http://localhost:3000/api/whatsapp/qr（更清晰）\n');
       qrcode.generate(qr, { small: true });
     });
     client.on('ready', () => {
+      if (client !== me) return; // 舊 client 遲來嘅 ready，唔好當新嗰隻掂咗
       markReady(); lastQr = null; lastDisconnect = null; reconnectAttempt = 0;
-      selfJid = client.info?.wid?._serialized || null;
+      selfJid = me.info?.wid?._serialized || null;
       const desc = getWhatsappTargets()
         .map(t => resolveJid(t.jid) + (t.regions ? `（只 ${t.regions.join('/')}）` : '（全部地區）'))
         .join(', ');
       console.log('[whatsapp] 已就緒，通知會推去', desc);
     });
-    client.on('auth_failure', m => { initErr = m; console.warn('[whatsapp] 登入失敗：', m); });
+    client.on('auth_failure', m => { if (client === me) { initErr = m; console.warn('[whatsapp] 登入失敗：', m); } });
     // 斷線：記低狀態俾 GUI 顯示，並且 backoff 自動重連（唔使人手重啟 server）
     client.on('disconnected', reason => {
+      if (client !== me) return; // 已經換咗，呢個係舊 client 嘅遺言，唔使理
       clientReady = false;
       lastDisconnect = { at: new Date().toISOString(), reason: String(reason) };
       console.warn('[whatsapp] 已斷線：', reason);
@@ -132,21 +155,23 @@ async function ensureClient() {
       const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectAttempt++, 10 * 60_000);
       console.log(`[whatsapp] ${Math.round(delay / 1000)} 秒後自動重連（第 ${reconnectAttempt} 次）`);
       setTimeout(async () => {
+        if (client !== me) return; // 等緊嗰陣 recycleClient 已經換咗新嘅
         try {
-          await client?.destroy().catch(() => {});
           client = null;
+          await me.destroy().catch(() => {});
           await ensureClient();
         } catch (err) {
           console.warn('[whatsapp] 重連失敗：', err.message);
         }
       }, delay);
     });
-    await client.initialize();
+    await withTimeout(client.initialize(), INIT_TIMEOUT_MS, 'client.initialize()');
   } catch (err) {
     initErr = err.message;
     console.warn('[whatsapp] 初始化失敗：', err.message);
-    await client?.destroy().catch(() => {});
+    const dead = client;
     client = null;
+    await dead?.destroy().catch(() => {});
     const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectAttempt++, 10 * 60_000);
     console.log(`[whatsapp] ${Math.round(delay / 1000)} 秒後重試初始化（第 ${reconnectAttempt} 次）`);
     setTimeout(() => {
