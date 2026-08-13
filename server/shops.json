@@ -241,6 +241,17 @@
       "trust": "verified_shop",
       "interval_s": 120,
       "enabled": true
+    },
+    {
+      "id": "circlek-shopeasy",
+      "name": "Circle K ShopEasy 網店",
+      "platform": "custom",
+      "base_url": "https://shopeasy.circlek.hk",
+      "region": "hk",
+      "trust": "official",
+      "interval_s": 120,
+      "enabled": false,
+      "comment": "OK便利店官方網店（Next.js 自家站，AWS ALB 後置）。內部 REST API：GET /api/{lng}/shopeasy/categories/、/categories/home/、/products/popular/{n}/、/banner/（lng=zh|en，全部要尾 slash，冇 slash 會 308）。需要新寫 shopeasy adapter（platform:custom 而家冇 runner）先巡到——照 platform-opencart/hobbyland 個 contract 出 runShop→ingestItem。**死因（2026-07-27）**：/api 後端全部 hang，30s+ 冇回應（首頁 200 秒回，淨係 /api data endpoint 掛），所以 enabled:false 泊住。情報來源 IG @popsalehk：BEYBLADE X 登陸 Circle K，2026-07-29 早上10點開搶。ShopEasy 網購限定（最快 8/1 取貨）：UX-04 對戰入門套裝 $369、UX-10 客製化套裝 $269、UX-15 三陀螺套裝 $219；BX-13 巴哈姆特閃擊 $109／BX-49 蒼龍突擊 $109 係指定分店限量、唔上網店唔巡得。待 API 復活睇到 JSON shape 即寫 adapter＋填 Beyblade 分類 endpoint，再 enabled:true。"
     }
   ]
 }
