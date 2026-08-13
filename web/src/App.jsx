@@ -9,7 +9,9 @@ import SettingsPage from './pages/SettingsPage.jsx';
 
 // page: {name:'feed'} | {name:'catalog'} | {name:'sku', code} | {name:'report'} | {name:'safety'} | {name:'settings'}
 export default function App() {
-  const [page, setPage] = useState({ name: 'feed' });
+  const [page, setPage] = useState(() =>
+    new URLSearchParams(window.location.search).has('admin') ? { name: 'settings' } : { name: 'feed' }
+  );
   const nav = p => { setPage(p); window.scrollTo(0, 0); };
 
   return (

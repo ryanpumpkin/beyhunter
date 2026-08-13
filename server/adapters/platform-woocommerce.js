@@ -1,5 +1,5 @@
 // 通用 WooCommerce Store API adapter——福利模型＋所有 Woo 舖（shops.json 驅動）
-import { fetchWithUA, ingestItem, markUnavailable, httpReason, errReason } from './util.js';
+import { fetchWithUA, ingestItem, markUnavailable, httpReason, errReason, decodeEntities } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 // 舊版 WooCommerce 嘅 Store API 路徑冇 /v1/（easybuy.hk 就係）——
@@ -49,7 +49,7 @@ export async function runShop(shop) {
           region: shop.region,
           source: shop.name,
           trust: shop.trust,
-          title: p.name.replace(/\s+/g, ' ').trim(),
+          title: decodeEntities(p.name).replace(/\s+/g, ' ').trim(),
           url: p.permalink,
           price,
           currency: p.prices?.currency_code || 'HKD',

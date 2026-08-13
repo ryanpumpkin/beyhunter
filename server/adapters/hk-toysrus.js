@@ -6,7 +6,14 @@ import { fetchWithUA, ingestItem, httpReason, errReason } from './util.js';
 import { reportSourceHealth } from '../db.js';
 
 const HK_PREORDER_URL = 'https://www.toysrus.com.hk/zh-hk/pre-order/';
-const BEY_RE = /beyblade|爆旋陀螺|戰鬥陀螺|陀螺/i;
+// 標題篩選：反斗城賣好多叫「陀螺」但唔關 Beyblade 事嘅嘢（LEGO 幻影忍者旋風忍術陀螺、
+// Ja-Ru 指尖陀螺、playpop 手指陀螺…），所以淨一個「陀螺」字唔算數——
+// 要有品牌字眼，或者「陀螺」＋X 系列型號（BX/UX/CX/BXG-xx）先當中。
+const BEY_BRAND_RE = /beyblade|爆旋陀螺|戰鬥陀螺|ベイブレード/i;
+const BEY_SKU_RE = /\b(?:BX|UX|CX|BXG)-?\d{2}\b/i;
+function isBeyblade(title) {
+  return BEY_BRAND_RE.test(title) || (/陀螺/.test(title) && BEY_SKU_RE.test(title));
+}
 
 function parsePage($, baseUrl) {
   const found = new Map();
@@ -19,7 +26,7 @@ function parsePage($, baseUrl) {
     const $card = $(el);
     const title = ($card.find('img[title]').attr('title') || $card.find('a[title]').attr('title') || '').trim();
     const href = $card.find('a[href*=".html"]').first().attr('href');
-    if (!title || !BEY_RE.test(title) || found.has(title)) return;
+    if (!title || !isBeyblade(title) || found.has(title)) return;
     const price = parseFloat($card.find('.price .value').first().attr('content') ?? '')
       || parseFloat(($card.find('.price').text().match(/[\d,]+(?:\.\d+)?/)?.[0] || '').replace(/,/g, '')) || null;
     const preorder = /預購|預訂|pre-?order/i.test($card.text());
@@ -31,7 +38,7 @@ function parsePage($, baseUrl) {
     $('a[title]').each((_, el) => {
       const title = $(el).attr('title')?.trim();
       const href = $(el).attr('href');
-      if (!title || !BEY_RE.test(title) || found.has(title)) return;
+      if (!title || !isBeyblade(title) || found.has(title)) return;
       const priceText = $(el).closest('[class*=product], li, article').find(':contains("$")').last().text();
       const price = parseFloat(priceText.match(/(?:HK|NT)?\$\s?([\d,]+(?:\.\d+)?)/)?.[1]?.replace(/,/g, '') ?? '') || null;
       found.set(title, { title, href, price, preorder: /pre-order|預購|預訂/i.test(baseUrl) });

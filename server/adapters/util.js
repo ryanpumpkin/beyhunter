@@ -14,6 +14,17 @@ export async function fetchWithUA(url, opts = {}) {
   });
 }
 
+// WordPress/WooCommerce 嘅 JSON API 出返嚟嘅標題係 HTML-escaped
+//（「–」變 &#8211;、「&」變 &amp;），唔解返會原樣入 DB 兼推去 WhatsApp 通知。
+const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+export function decodeEntities(s) {
+  return String(s ?? '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+    if (e[0] !== '#') return NAMED_ENTITIES[e.toLowerCase()] ?? m;
+    const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+    return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+  });
+}
+
 // 死因格式化：畀 adapter 失敗分支傳去 reportSourceHealth(id, 0, reason)。
 // HTTP 掛（站有回應但非 2xx，如 Cloudflare 521/503）：
 export function httpReason(res) {

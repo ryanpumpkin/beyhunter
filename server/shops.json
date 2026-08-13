@@ -6,7 +6,11 @@
       "name": "福利模型 Fook Le Model",
       "platform": "woocommerce",
       "base_url": "https://fooklemodel.com",
-      "search": "beyblade",
+      "searches": [
+        "beyblade",
+        "爆旋陀螺"
+      ],
+      "comment": "舖主有兩套改名習慣：英文「TAKARATOMY BBX-xxx BEYBLADE X ...」同純中文「Takara Tomy 爆旋陀螺X – UX-20 ...」。只搜 beyblade 會漏晒後者（例：UX-20 榮耀女武神 LF）。加「爆旋陀螺」補返——實測淨係中三件全部係陀螺貨，零噪音。唔用「陀螺」（會撈到 Koro Koro 手指陀螺）。",
       "region": "hk",
       "trust": "verified_shop",
       "interval_s": 60,
@@ -29,6 +33,12 @@
       "name": "玩具反斗城 香港",
       "platform": "toysrus",
       "base_url": "https://www.toysrus.com.hk",
+      "listing_urls": [
+        "https://www.toysrus.com.hk/zh-hk/pre-order/",
+        "https://www.toysrus.com.hk/on/demandware.store/Sites-ToysRUs_HK-Site/zh_HK/Search-UpdateGrid?cgid=beyblade&start=0&sz=48",
+        "https://www.toysrus.com.hk/on/demandware.store/Sites-ToysRUs_HK-Site/zh_HK/Search-UpdateGrid?q=beyblade&start=0&sz=48"
+      ],
+      "comment": "以前淨係監預購頁（HK_PREORDER_URL），現貨上架完全睇唔到——TW 有分類頁 listing_urls，HK 冇，所以漏。Salesforce Commerce：分類頁 /zh-hk/beyblade/ 個 grid 係 AJAX 出，靜態 HTML 得 3 個推介卡（Toybox/Globber…唔關事），要打 Search-UpdateGrid 呢個 fragment endpoint 先攞到真貨（.product 卡格式同 TW 一樣，現行 parser 直接用得）。cgid=beyblade（分類）＋ q=beyblade（搜尋）兩路夾，預購頁照留。唔加 q=陀螺——會撈到 LEGO 幻影忍者陀螺／Ja-Ru 指尖陀螺一堆噪音。",
       "region": "hk",
       "trust": "official",
       "interval_s": 60,
@@ -203,6 +213,7 @@
         "https://preorder.maytoysonline.com/index.php?route=product/search&search=beyblade&limit=100"
       ],
       "comment": "OpenCart 預訂站（另一 subdomain；www 主站冇 Beyblade X）。.product-thumb 卡，標題喺 img[title] 開頭「BeybladeX ...」，截止睇 .outofstock/label-outofstock（截止預訂）。search=beyblade 認到（標題都有 BeybladeX）。",
+      "allow_empty_results": true,
       "region": "hk",
       "trust": "verified_shop",
       "interval_s": 120,

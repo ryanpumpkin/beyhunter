@@ -57,6 +57,8 @@ export async function runShop(shop) {
       reason = errReason(err);
     }
   }
-  reportSourceHealth(adapterId, itemsSeen, reason);
+  // 部分搜尋頁本來就會長期冇結果；HTTP 成功時唔應當成 selector 壞咗。
+  const healthItems = shop.allow_empty_results && !reason ? Math.max(itemsSeen, 1) : itemsSeen;
+  reportSourceHealth(adapterId, healthItems, reason);
   return added;
 }

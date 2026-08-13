@@ -166,7 +166,7 @@ const qs = '?${tokenQs}';
 async function tick() {
   const s = await fetch('/api/whatsapp/status' + qs).then(r => r.json());
   const app = document.getElementById('app');
-  if (!s.enabled) { app.innerHTML = '<p>WhatsApp 未啟用。喺 .env 設 WHATSAPP_ENABLED=1，再重啟。</p>'; return; }
+  if (!s.configured) { app.innerHTML = '<p>WhatsApp 未啟用。喺 .env 設 WHATSAPP_ENABLED=1，再重啟。</p>'; return; }
   if (s.ready) {
     app.innerHTML = '<p style="font-size:20px">✅ 已連結，補貨通知會推去 <b>' +
       (s.targets || []).map(t => t.label || t.jid).join('、') + '</b></p>';
@@ -201,7 +201,7 @@ setInterval(tick, 5000);
 app.get('/api/whatsapp/qr-image', requireAdmin, async (_req, res) => {
   const s = whatsapp.status();
   res.set('Content-Type', 'text/html; charset=utf-8');
-  if (!s.hasQr) return res.send('');
+  if (!s.qr) return res.send('');
   const img = await QRCode.toDataURL(s.qr, { width: 280, margin: 2 });
   res.send(`<img src="${img}" width="280" height="280"/>`);
 });

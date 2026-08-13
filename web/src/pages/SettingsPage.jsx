@@ -142,17 +142,25 @@ export default function SettingsPage() {
       {/* 連線狀態 */}
       <section className="rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="mb-2 text-sm font-semibold text-white/80">WhatsApp 連線</h2>
-        {!status ? <p className="text-sm text-white/50">載入中…</p> : status.ready ? (
+        {!status ? <p className="text-sm text-white/50">載入中…</p> : !status.configured ? (
+          <p className="text-sm text-red-400">WhatsApp 未啟用，請設定 WHATSAPP_ENABLED=1 後重啟。</p>
+        ) : status.ready ? (
           <p className="text-sm text-green-400">🟢 已連結{status.self ? `（${status.self.replace('@c.us', '')}）` : ''}</p>
         ) : (
           <div className="text-sm">
             <p className="text-red-400">🔴 未連結{status.lastDisconnect ? `——${new Date(status.lastDisconnect.at).toLocaleString()} 斷咗（${status.lastDisconnect.reason}），重連緊` : ''}</p>
             {status.hasQr && (
-              <a href={`/api/whatsapp/qr?token=${encodeURIComponent(getAdminToken())}`} target="_blank" rel="noreferrer"
-                className="mt-2 inline-block rounded bg-bey-yellow px-3 py-1.5 font-medium text-navy-900">
-                開 QR 登入頁
-              </a>
+              <img
+                src={`/api/whatsapp/qr-image?token=${encodeURIComponent(getAdminToken())}&v=${status.qrVersion}`}
+                alt="WhatsApp 登入 QR code"
+                className="mt-3 h-[280px] w-[280px] rounded bg-white p-1"
+              />
             )}
+            <a href={`/api/whatsapp/qr?token=${encodeURIComponent(getAdminToken())}`} target="_blank" rel="noreferrer"
+              className="mt-2 inline-block rounded bg-bey-yellow px-3 py-1.5 font-medium text-navy-900">
+              另開登入頁 / 使用電話配對碼
+            </a>
+            {!status.hasQr && <p className="mt-2 text-xs text-white/50">QR code 準備中，登入頁會自動更新。</p>}
           </div>
         )}
       </section>

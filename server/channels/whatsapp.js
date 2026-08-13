@@ -50,6 +50,7 @@ function waitForReady(timeoutMs = 60_000) {
   });
 }
 let lastQr = null; // 最新 QR 字串，俾 /api/whatsapp/qr 網頁版用
+let qrVersion = 0; // QR 會定期更新，俾 Settings bust image cache
 let selfJid = null; // 登入號碼（"me" 解析用）
 let lastDisconnect = null; // { at, reason }——GUI 顯示斷線警告用
 
@@ -61,9 +62,11 @@ function resolveJid(jid) {
 // 俾 server 出 status/QR 頁＋設定 GUI
 export function status() {
   return {
+    configured: ENABLED,
     enabled: enabled(),
     ready: clientReady,
     qr: clientReady ? null : lastQr,
+    qrVersion,
     targets: getWhatsappTargets(),
     self: selfJid,
     error: initErr,
@@ -99,11 +102,13 @@ async function ensureClient() {
       puppeteer: {
         headless: true,
         executablePath: await chromiumPath(),
+        timeout: 120_000,
         args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
       },
     });
     client.on('qr', qr => {
       lastQr = qr;
+      qrVersion++;
       console.log('\n[whatsapp] 掃 QR 登入：終端機睇下面，或開 http://localhost:3000/api/whatsapp/qr（更清晰）\n');
       qrcode.generate(qr, { small: true });
     });
@@ -140,6 +145,14 @@ async function ensureClient() {
   } catch (err) {
     initErr = err.message;
     console.warn('[whatsapp] 初始化失敗：', err.message);
+    await client?.destroy().catch(() => {});
+    client = null;
+    const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectAttempt++, 10 * 60_000);
+    console.log(`[whatsapp] ${Math.round(delay / 1000)} 秒後重試初始化（第 ${reconnectAttempt} 次）`);
+    setTimeout(() => {
+      initErr = null;
+      ensureClient();
+    }, delay);
   }
 }
 
