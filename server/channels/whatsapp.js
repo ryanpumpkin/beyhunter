@@ -185,6 +185,31 @@ export async function sendTo(jid, text) {
   await client.sendMessage(resolveJid(jid), text);
 }
 
+// sendMessage 一定要有 timeout。教訓：Chromium 喺 memory 壓力下會「唔死但吊住」，
+// puppeteer 個 promise 就永遠唔 resolve 又唔 reject——而 notify.js 個 sendChain 係
+// 串行嘅，一條吊住就成條隊永久塞死，之後所有補貨通知全部靜靜雞冇咗，重啟先發現。
+//（2026-08-12 就係咁漏咗 BX-25 補貨通知，前一條仲要遲咗 3 個鐘先送到。）
+const SEND_TIMEOUT_MS = 45_000;
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} 等咗 ${ms / 1000}s 都冇反應（Chromium 可能吊咗）`)), ms);
+    }),
+  ]);
+}
+
+// sendMessage 吊死＝隻 Chromium 已經唔可靠，淨係 throw 唔夠——下一條會照樣吊。
+// 拆咗佢等下次 ensureClient() 開返隻新嘅（同 'disconnected' handler 一樣做法）。
+async function recycleClient(why) {
+  console.warn('[whatsapp] 回收 client：', why);
+  clientReady = false;
+  const dead = client;
+  client = null;
+  await dead?.destroy().catch(() => { /* 本身已經吊咗，destroy 失敗好正常 */ });
+}
+
 // ev（可選）用嚟做 per-target region filter；冇 ev（例如系統訊息）就派晒。
 // ev.region 唔喺某 target 嘅 regions 入面 → 嗰個 target 唔收
 //（所以 region='system' 嘅警報只有「全收」嘅 target 先會收到）。
@@ -197,6 +222,12 @@ export async function send(text, ev) {
   }
   const matched = getWhatsappTargets().filter(t => !t.regions || !ev?.region || t.regions.includes(ev.region));
   for (const t of matched) {
-    await client.sendMessage(resolveJid(t.jid), text);
+    try {
+      await withTimeout(client.sendMessage(resolveJid(t.jid), text), SEND_TIMEOUT_MS, `send 去 ${resolveJid(t.jid)}`);
+    } catch (err) {
+      // timeout 先回收；一般錯誤（例如 jid 唔啱）唔使拆客戶端
+      if (/冇反應/.test(err.message)) await recycleClient(err.message);
+      throw err; // 交返俾 notify.js 決定重試定記低
+    }
   }
 }

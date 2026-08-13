@@ -2,6 +2,7 @@
 // Channel 各自獨立，一個掛咗唔影響第個；全部未設定就淨係 log。
 import * as telegram from './channels/telegram.js';
 import * as whatsapp from './channels/whatsapp.js';
+import { insertNotifyLog } from './db.js';
 
 const CHANNELS = [telegram, whatsapp];
 
@@ -31,6 +32,43 @@ function formatMessage(ev) {
 const SEND_DELAY_MS = 2500;
 let sendChain = Promise.resolve();
 
+// 一條通知喺一個 channel 度試幾多次（第一次 + 下面啲 delay）。
+// 短暫斷線/重連好常見，試多兩次通常就過到；試晒都唔得先當真失敗。
+const RETRY_DELAYS_MS = [5_000, 20_000];
+
+// 每次派送都寫低（成功都寫），送失敗唔可以再好似以前咁淨係 console.warn ——
+// container 一重啟就查無可查。寫 DB 失敗唔可以拖冧通知流程，所以包住 try。
+function logDelivery(row) {
+  try { insertNotifyLog.run(row); } catch (err) { console.warn('[notify] 寫 notify_log 失敗：', err.message); }
+}
+
+// 派一條去單一 channel，失敗自動重試。回傳 true = 最終送到。
+async function deliver(ch, text, ev) {
+  const meta = {
+    channel: ch.name,
+    kind: ev?.region === 'system' ? 'system' : (ev?.kind || null),
+    title: (ev?.title || text).split('\n')[0].slice(0, 120),
+    url: ev?.url || null,
+  };
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_DELAYS_MS.length + 1; attempt++) {
+    try {
+      await ch.send(text, ev);
+      logDelivery({ ...meta, status: 'ok', attempts: attempt, error: null });
+      return true;
+    } catch (err) {
+      lastErr = err;
+      const delay = RETRY_DELAYS_MS[attempt - 1];
+      if (delay == null) break; // 試晒喇
+      console.warn(`[notify:${ch.name}] 第 ${attempt} 次失敗（${err.message}），${delay / 1000}s 後再試`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  console.warn(`[notify:${ch.name}] 試晒 ${RETRY_DELAYS_MS.length + 1} 次都送唔出：`, lastErr?.message);
+  logDelivery({ ...meta, status: 'failed', attempts: RETRY_DELAYS_MS.length + 1, error: lastErr?.message || String(lastErr) });
+  return false;
+}
+
 // 系統警報（來源壞咗、斷線等）：region='system' 令有 region filter 嘅
 // target（例如只收 hk 嘅 group）唔會收到，只推畀「全收」嘅 target（你自己）
 export function alertSystem(text) {
@@ -39,7 +77,7 @@ export function alertSystem(text) {
   sendChain = sendChain
     .then(async () => {
       for (const ch of active) {
-        try { await ch.send(`⚠️ ${text}`, { region: 'system' }); } catch (err) { console.warn(`[notify:${ch.name}] 警報推送失敗：`, err.message); }
+        await deliver(ch, `⚠️ ${text}`, { region: 'system', title: text });
       }
       await new Promise(r => setTimeout(r, SEND_DELAY_MS));
     })
@@ -60,12 +98,8 @@ export function notifyNewEvent(ev) {
     .then(async () => {
       let anyOk = false;
       for (const ch of active) {
-        try {
-          await ch.send(text, ev); // channel 可按 ev.region 做 per-target filter（WhatsApp）
-          anyOk = true;
-        } catch (err) {
-          console.warn(`[notify:${ch.name}] 推送失敗：`, err.message);
-        }
+        // deliver 自己重試＋記低，唔會 throw，所以一個 channel 死唔會拖冧第個
+        if (await deliver(ch, text, ev)) anyOk = true; // channel 可按 ev.region 做 per-target filter（WhatsApp）
       }
       await new Promise(r => setTimeout(r, SEND_DELAY_MS));
       return anyOk;
